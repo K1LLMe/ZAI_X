@@ -2,15 +2,6 @@ name: Build iOS IPA
 
 on:
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'release'
-        type: choice
-        options:
-          - release
-          - debug
 
 jobs:
   build:
@@ -23,47 +14,93 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'latest'
           channel: 'stable'
+          cache: true
       
       - name: Get Flutter dependencies
         run: flutter pub get
       
-      - name: Build iOS IPA (Ad-hoc)
+      - name: Build Flutter for iOS
         run: |
           flutter build ios \
             --release \
-            --no-codesign \
-            --build-number=${{ github.run_number }}
+            --no-codesign
       
-      - name: Create IPA using xcodebuild
+      - name: Setup CocoaPods
         run: |
           cd ios
-          xcodebuild -workspace Runner.xcworkspace \
+          pod install --repo-update
+      
+      - name: Build iOS App Archive
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -derivedDataPath build \
-            -allowProvisioningUpdates \
-            OTHER_CODE_SIGN_IDENTITY="" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_ENTITLEMENTS="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            DEVELOPMENT_TEAM=""
+            -archivePath build/Runner.xcarchive \
+            archive
+      
+      - name: Export IPA
+        run: |
+          cd ios
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportOptionsPlist exportOptions.plist \
+            -exportPath build/ipa
+      
+      - name: Create exportOptions.plist if needed
+        if: failure()
+        run: |
+          mkdir -p ios/build/ipa
+          cd ios
           
-          mkdir -p Payload
-          mv build/Build/Products/Release-iphoneos/Runner.app Payload/
-          zip -r -y Runner.ipa Payload/
-          cd ..
+          # 如果导出失败，尝试无签名的方式
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/Runner.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist <(cat <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>method</key>
+    <string>ad-hoc</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>teamID</key>
+    <string></string>
+</dict>
+</plist>
+EOF
+            )
       
       - name: Upload IPA as artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa-${{ github.run_number }}
-          path: ios/Runner.ipa
+          path: ios/build/ipa/Runner.ipa
           retention-days: 30
+          if-no-files-found: ignore
+      
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ github.run_number }}
+          path: |
+            ios/build/Logs
+          retention-days: 7
+          if-no-files-found: ignore
       
       - name: Display build info
+        if: success()
         run: |
           echo "✅ iOS IPA 编译完成！"
           echo "📦 Build Number: ${{ github.run_number }}"
