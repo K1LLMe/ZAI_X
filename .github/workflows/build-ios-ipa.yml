@@ -31,6 +31,26 @@ jobs:
           cd ios
           pod install --repo-update
       
+      - name: Create exportOptions.plist
+        run: |
+          mkdir -p ios
+          cat > ios/exportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>teamID</key>
+              <string></string>
+          </dict>
+          </plist>
+          EOF
+      
       - name: Build iOS App Archive
         run: |
           cd ios
@@ -50,35 +70,6 @@ jobs:
             -archivePath build/Runner.xcarchive \
             -exportOptionsPlist exportOptions.plist \
             -exportPath build/ipa
-      
-      - name: Create exportOptions.plist if needed
-        if: failure()
-        run: |
-          mkdir -p ios/build/ipa
-          cd ios
-          
-          # 如果导出失败，尝试无签名的方式
-          xcodebuild \
-            -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist <(cat <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>signingStyle</key>
-    <string>automatic</string>
-    <key>method</key>
-    <string>ad-hoc</string>
-    <key>stripSwiftSymbols</key>
-    <true/>
-    <key>teamID</key>
-    <string></string>
-</dict>
-</plist>
-EOF
-            )
       
       - name: Upload IPA as artifact
         if: always()
