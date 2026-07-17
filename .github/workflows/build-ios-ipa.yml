@@ -39,14 +39,12 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
+              <key>method</key>
+              <string>generic</string>
               <key>signingStyle</key>
               <string>automatic</string>
-              <key>method</key>
-              <string>ad-hoc</string>
               <key>stripSwiftSymbols</key>
               <true/>
-              <key>teamID</key>
-              <string></string>
           </dict>
           </plist>
           EOF
@@ -63,6 +61,7 @@ jobs:
             -allowProvisioningUpdates \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
+            OTHER_CODE_SIGN_FLAGS="--keychain /Library/Keychains/System.keychain" \
             archive
       
       - name: Export IPA
