@@ -40,7 +40,7 @@ jobs:
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>generic</string>
+              <string>release-testing</string>
               <key>signingStyle</key>
               <string>automatic</string>
               <key>stripSwiftSymbols</key>
