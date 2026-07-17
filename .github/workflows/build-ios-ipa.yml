@@ -60,6 +60,9 @@ jobs:
             -configuration Release \
             -derivedDataPath build \
             -archivePath build/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
             archive
       
       - name: Export IPA
