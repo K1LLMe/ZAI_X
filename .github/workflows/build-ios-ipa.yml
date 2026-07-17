@@ -31,23 +31,27 @@ jobs:
           cd ios
           pod install --repo-update
       
-      - name: Create exportOptions.plist
+      - name: Fix Runner project settings
         run: |
-          mkdir -p ios
-          cat > ios/exportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>release-testing</string>
-              <key>signingStyle</key>
-              <string>automatic</string>
-              <key>stripSwiftSymbols</key>
-              <true/>
-          </dict>
-          </plist>
-          EOF
+          cd ios
+          # 设置 Team ID 为空以跳过签名要求
+          ruby - <<'RUBY'
+          require 'xcodeproj'
+          
+          project_path = 'Runner.xcodeproj'
+          project = Xcodeproj::Project.open(project_path)
+          
+          project.targets.each do |target|
+            target.build_configurations.each do |config|
+              config.build_settings['DEVELOPMENT_TEAM'] = ''
+              config.build_settings['CODE_SIGN_IDENTITY'] = ''
+              config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+              config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
+            end
+          end
+          
+          project.save
+          RUBY
       
       - name: Build iOS App Archive
         run: |
@@ -59,19 +63,22 @@ jobs:
             -derivedDataPath build \
             -archivePath build/Runner.xcarchive \
             -allowProvisioningUpdates \
+            DEVELOPMENT_TEAM="" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            OTHER_CODE_SIGN_FLAGS="--keychain /Library/Keychains/System.keychain" \
             archive
       
-      - name: Export IPA
+      - name: Create IPA manually
         run: |
-          cd ios
-          xcodebuild \
-            -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportOptionsPlist exportOptions.plist \
-            -exportPath build/ipa
+          cd ios/build
+          mkdir -p ipa
+          cd Runner.xcarchive
+          cp -r Products/Applications/Runner.app ../ipa/
+          cd ../ipa
+          mkdir -p Payload
+          mv Runner.app Payload/
+          zip -r Runner.ipa Payload
+          mv Runner.ipa ../ipa/
       
       - name: Upload IPA as artifact
         if: always()
