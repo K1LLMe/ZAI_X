@@ -78,7 +78,6 @@ jobs:
           mkdir -p Payload
           mv Runner.app Payload/
           zip -r Runner.ipa Payload
-          mv Runner.ipa ../ipa/
       
       - name: Upload IPA as artifact
         if: always()
